@@ -1,0 +1,269 @@
+---
+title: "IDA Hw3"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup}
+# Load Packages
+require(mice)
+require(JointAI)
+require(ggplot2)
+```
+
+## Question 1
+
+a) There are 48% of cases have missing data.
+
+```{r cars}
+# Count rows with at least 1 missing value and divide by total rowss
+nrow(nhanes[rowSums(is.na(nhanes)) >= 1, ])/25
+
+```
+
+b) The proportions of variance due to the missing data for each parameter are 0.089, 0.350, 0.686, 0.304. The parameter seem to be affected most is the $\beta_2$ because it has the highest relative increase in variance and fraction of missing information.
+
+```{r pressure, echo=FALSE}
+imp_q1 = mice(nhanes, printFlag = FALSE, seed = 1)
+fit_q1 = with(imp_q1, lm(bmi ~ hyp + age + chl))
+pool(fit_q1)
+```
+
+c) The riv and fim for $\beta_2$ is relative high in all cases but it's not always the highest, so the conclusion is not the same.
+```{r}
+imp2_q1 = mice(nhanes, printFlag = FALSE, seed = 2)
+fit2_q1 = with(imp2_q1, lm(bmi ~ hyp + age + chl))
+pool(fit2_q1)
+
+imp3_q1 = mice(nhanes, printFlag = FALSE, seed = 3)
+fit3_q1 = with(imp3_q1, lm(bmi ~ hyp + age + chl))
+pool(fit3_q1)
+
+imp4_q1 = mice(nhanes, printFlag = FALSE, seed = 4)
+fit4_q1 = with(imp4_q1, lm(bmi ~ hyp + age + chl))
+pool(fit4_q1)
+
+imp5_q1 = mice(nhanes, printFlag = FALSE, seed = 5)
+fit5_q1 = with(imp5_q1, lm(bmi ~ hyp + age + chl))
+pool(fit5_q1)
+
+imp6_q1 = mice(nhanes, printFlag = FALSE, seed = 6)
+fit6_q1 = with(imp6_q1, lm(bmi ~ hyp + age + chl))
+pool(fit6_q1)
+```
+d) I prefer M = 100 because the riv and fim appeared to be lower than M = 5, which means the parameters are less affected by missing values and the estimates also seem to be more stable.
+```{r}
+imp7 = function(seed_input){
+  for (i in 1:seed_input){
+    imp7_q1 = mice(nhanes, printFlag = FALSE, seed = i, m = 100)
+    fit7_q1 = with(imp7_q1, lm(bmi ~ hyp + age + chl))
+  }
+  return(pool(fit7_q1))
+}
+for(i in 1:6){
+  print(imp7(i))
+}
+```
+
+
+## Question 2
+
+I first displayed the 95% confidence interval for the first dataset with both methods, then calculated the empirical coverage probability for $\beta_1$ then By comparing the stochastic regression imputation method and bootstrap version, we can clearly see the second method is a better approach, with 95% empirical coevrage probability.
+
+```{r}
+load('dataex2(1).Rdata')
+
+# Stochastic regression imputation method
+
+# Confidence interval for the first dataset
+imp_q2 = mice(dataex2[ , ,1], printFlag = FALSE, method = 'norm.nob', m = 20, seed = 1)
+fit_q2 = with(imp_q2, lm(Y ~ X))
+est_q2 = pool(fit_q2)
+summary(est_q2, conf.int = TRUE)[2, c(2, 3, 6, 7, 8)]
+
+# Empirical coverage probability
+
+# Define a function to calculate confidence interval
+nob_meth = function(iteration){
+  imp2_q2 = mice(dataex2[ , ,i], method = 'norm.nob',  printFlag = FALSE, m = 20, seed = 1)
+  fit2_q2 = with(imp2_q2, lm(Y ~ X))
+  est2_q2 = pool(fit2_q2)
+  return(summary(est2_q2, conf.int = TRUE)[2, c(7, 8)])
+}
+# Use for loop to count the number of times that beta1 lies within the interval.
+count = 0
+for (i in 1:100){
+  if (nob_meth(i)[1] < 3 && nob_meth(i)[2] > 3){
+    count = count + 1
+  }
+}
+count/100
+```
+
+```{r}
+# Bootstrap method
+# Confidence interval for the first dataset
+imp1_q2 = mice(dataex2[ , ,1], printFlag = FALSE, method = 'norm.boot', m = 20, seed = 1)
+fit1_q2 = with(imp1_q2, lm(Y ~ X))
+est1_q2 = pool(fit1_q2)
+summary(est1_q2, conf.int = TRUE)[2, c(2, 3, 6, 7, 8)]
+
+# Define Function
+boot_meth = function(iteration){
+  imp3_q2 = mice(dataex2[ , ,i], printFlag = FALSE, method = 'norm.boot', m = 20, seed = 1)
+  fit3_q2 = with(imp3_q2, lm(Y ~ X))
+  est3_q2 = pool(fit3_q2)
+  return(summary(est3_q2, conf.int = TRUE)[2, c(7, 8)])
+}
+# Find probability
+count_2 = 0
+for (i in 1:100){
+  if (boot_meth(i)[1] < 3 && boot_meth(i)[2] > 3){
+    count_2 = count_2 + 1
+  }
+}
+count_2/100
+```
+
+
+
+## Question 3
+
+In the first method we first compute the point estimates of each model, then take the average of the value according to Rubin's rule. This is essentially the same as taking the regression coefficient first by using Rubin's rule and then compute the predicted value. Because if we take 1/M of theta from each model and then sum them up, it's the same as suming them up and then take the average.  
+
+## Question 4
+
+a) The estimates for $\beta_0, \beta_1, \beta_2, \beta_3$ are 1.593, 1.411, 1.966, 0.755. Only the true value of $\beta_0$ and $\beta_2$ lies with in the confidence interval.
+
+```{r}
+load('dataex4(1).Rdata')
+imp_q4 = mice(dataex4, printFlag = FALSE, seed = 1, m = 50)
+fit_q4 = with(imp_q4, lm(y ~ x1 + x2 + x1:x2))
+est_q4 = pool(fit_q4)
+summary(est_q4, conf.int = TRUE)
+
+```
+b) The estimates for passive imputation are 2.172, 0.975, 1.621, 0.941. This time only $beta_1$ and $beta_3$ lie with in the confidence interval.
+
+```{r}
+df = dataex4
+df$x1x2 = df$x1*df$x2
+imp2_q4 = mice(df, printFlag = FALSE, seed = 1, m = 50)
+meth = imp2_q4$method
+# Calculate x1x2 through I() operator
+meth["x1x2"] = "~I(x1*x2)"
+pred = imp2_q4$predictorMatrix
+# Modify the predictor matrix
+pred[c("x1","x2"), "x1x2"] = 0
+pred[ ,c("x1","x2")] = 0
+pred["x1" ,"x2"] = 1
+pred["x2" ,"x1"] = 1
+imp2_q4 = mice(df, method = meth, predictorMatrix = pred, maxit = 20, printFlag = FALSE, seed = 1, m = 50)
+fit2_q4 = with(imp2_q4, lm(y ~ x1 + x2 + x1:x2))
+est2_q4 = pool(fit2_q4)
+summary(est2_q4, conf.int = TRUE)
+```
+d) This time the estimates and confidence interval are much closer to the actual values. With estimates 1.4997, 1.0039, 2.0262, 1.0178. All values lies within the confidence intervals.
+
+```{r}
+df$x1x2 = df$x1*df$x2
+imp3_q4 = mice(df, printFlag = FALSE, seed = 1, m = 50)
+fit3_q4 = with(imp3_q4, lm(y ~ x1 + x2 + x1x2))
+est3_q4 = pool(fit3_q4)
+summary(est3_q4, conf.int = TRUE)
+```
+
+d) Caculating the interaction variables, append it to the dataset and treat it as just another variable is the better approach.
+
+## Question 5
+
+First I loaded the dataset and checked its dimension and variables. The datasets contains 500 rows of 12 variables, the variables also seem reasonable.
+```{r}
+# Load dataset
+load('NHANES2.Rdata')
+
+# Check the dimension and nature of variables
+dim(NHANES2)
+str(NHANES2)
+```
+
+Then I checked the summary to see its mean, median, quantiles and created visualizations to check missing pattern. There are 214 missing data located in 8 different columns.
+
+```{r}
+# Summary and missing data pattern
+summary(NHANES2)
+mdpat_mice = md.pattern(NHANES2)
+md_pattern(NHANES2, pattern = FALSE, color = c('#34111b', '#e30f41'))
+plot_all(NHANES2, breaks = 30, ncol = 4)
+```
+
+Then I ran several checks with different values of M and seeds to find appropriate values. I found that the estimates, standard error, and confidence intervals get more stable as M increases.
+
+```{r}
+# Check the choice of M and seed
+# Default M = 5 and change the seed
+ests_seed1 <- pool(with(mice(NHANES2, printFlag = FALSE, seed = 1), lm(wgt ~ hgt + age + WC)))
+ests_seed2 <- pool(with(mice(NHANES2, printFlag = FALSE, seed = 11), lm(wgt ~ hgt + age + WC)))
+ests_seed3 <- pool(with(mice(NHANES2, printFlag = FALSE, seed = 111), lm(wgt ~ hgt + age + WC)))
+summary(ests_seed1, conf.int = TRUE)[, c(2, 3, 6, 7, 8)]
+summary(ests_seed2, conf.int = TRUE)[, c(2, 3, 6, 7, 8)]
+summary(ests_seed3, conf.int = TRUE)[, c(2, 3, 6, 7, 8)]
+
+```
+
+```{r}
+ests2_seed1 <- pool(with(mice(NHANES2, printFlag = FALSE, seed = 1, m = 20), lm(wgt ~ hgt + age + WC)))
+ests2_seed2 <- pool(with(mice(NHANES2, printFlag = FALSE, seed = 11, m = 20), lm(wgt ~ hgt + age + WC)))
+ests2_seed3 <- pool(with(mice(NHANES2, printFlag = FALSE, seed = 111, m = 20), lm(wgt ~ hgt + age + WC)))
+
+summary(ests2_seed1, conf.int = TRUE)[, c(2, 3, 6, 7, 8)]
+summary(ests2_seed2, conf.int = TRUE)[, c(2, 3, 6, 7, 8)]
+summary(ests2_seed3, conf.int = TRUE)[, c(2, 3, 6, 7, 8)]
+
+```
+
+```{r}
+ests3_seed1 <- pool(with(mice(NHANES2, printFlag = FALSE, seed = 1, m = 100), lm(wgt ~ hgt + age + WC)))
+ests3_seed2 <- pool(with(mice(NHANES2, printFlag = FALSE, seed = 11, m = 100), lm(wgt ~ hgt + age + WC)))
+ests3_seed3 <- pool(with(mice(NHANES2, printFlag = FALSE, seed = 111, m = 100), lm(wgt ~ hgt + age + WC)))
+
+summary(ests3_seed1, conf.int = TRUE)[, c(2, 3, 6, 7, 8)]
+summary(ests3_seed2, conf.int = TRUE)[, c(2, 3, 6, 7, 8)]
+summary(ests3_seed3, conf.int = TRUE)[, c(2, 3, 6, 7, 8)]
+
+```
+
+Checking the loggedEvents contained in object imp_q5 to see if mice() detected any problems during the imputation.
+```{r}
+# Start imputation procedure
+imp_q5 = mice(NHANES2, maxit = 20, m = 100, seed = 1, printFlag = FALSE)
+# Check if mice()detected any problems
+imp_q5$loggedEvents
+
+```
+
+Then I checked the convergence of each variable, they all seem to converge pretty well. 
+```{r}
+# Check for convergence
+plot(imp_q5, layout = c(6,6))
+```
+```{r}
+# Compare distribution of imputed values versus observed values
+densityplot(imp_q5)
+
+```
+Lastly, I further explored the relationship between weight and height, age, waist circumference. Based on the graph, weight doesn't seem to be affected by age, but it is certainly affected by height and waist circumference.
+
+```{r}
+comp = complete(imp_q5, 1)
+plot(comp$wgt ~ comp$hgt, xlab = "Height", ylab = "Weight")
+plot(comp$wgt ~ comp$age, xlab = "Age", ylab = "Weight")
+plot(comp$wgt ~ comp$WC, xlab = "Waist Circumference", ylab = "Weight")
+```
+```{r}
+# Fit the model and pool the result
+fit_q5 = with(imp_q5, lm(wgt ~ hgt + age + WC))
+est_q5 = pool(fit_q5)
+summary(est_q5, conf.int = TRUE)
+```
